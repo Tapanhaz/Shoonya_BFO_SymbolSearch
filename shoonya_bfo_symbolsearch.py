@@ -1,12 +1,23 @@
+# -*- coding: utf-8 -*-
+"""
+    :: Description :: Search scrips in shoonya bfo symbolmaster.
+    :: License :: MIT
+    :: Author :: Tapan Hazarika
+    :: Created :: On Monday Novenber 06, 2023
+"""
+__author__ = "Tapan Hazarika"
+__license__ = "MIT"
+
+
+import os
+import logging
+import requests
 import polars as pl
 from io import BytesIO
 from zipfile import ZipFile
-import requests
 from datetime import datetime
-import os
-import logging
-from typing import Literal, Union
 from functools import lru_cache
+from typing import Literal, Union
 
 
 class ShoonyaBFOMaster:
