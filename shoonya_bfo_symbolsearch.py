@@ -148,13 +148,12 @@ class ShoonyaBFOMaster:
     def get_expiry(
             self,
             symbol: str=None,
-            tradingsymbol: str=None,
             instrument: Literal["FUTIDX", "FUTSTK", "OPTIDX", "OPTSTK"]= "OPTIDX",
             expirytype: Literal["near", "next", "far", "all"]= "near"
             )-> Union[str, list]:
         df = self.load_master()
         try:
-            if symbol and not tradingsymbol:
+            if symbol:
                 all_expiry= df.lazy().select(
                                             ["Symbol_1", "Expiry","Instrument"]
                                         ).filter(
@@ -173,22 +172,7 @@ class ShoonyaBFOMaster:
                                             ).with_columns(
                                                 pl.col("Expiry").dt.strftime(format= "%d-%b-%Y").str.to_uppercase()
                                             ).collect()
-            elif tradingsymbol:
-                all_expiry= df.lazy().select(
-                                            ["TradingSymbol", "Expiry"]
-                                        ).filter(
-                                            (pl.col("TradingSymbol") == tradingsymbol.upper())
-                                        ).with_columns(
-                                            pl.col("Expiry").str.to_date(format= "%d-%b-%Y")
-                                        ).select(
-                                            "Expiry"
-                                        ).filter(
-                                            pl.col("Expiry") >= self.current_date
-                                        ).unique().sort(
-                                            by="Expiry"
-                                            ).with_columns(
-                                                pl.col("Expiry").dt.strftime(format= "%d-%b-%Y").str.to_uppercase()
-                                            ).collect()
+            
             if expirytype == "near":
                 return all_expiry.item(0,0)
             elif expirytype == "next":
