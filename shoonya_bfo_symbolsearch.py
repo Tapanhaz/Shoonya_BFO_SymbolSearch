@@ -8,16 +8,15 @@
 __author__ = "Tapan Hazarika"
 __license__ = "MIT"
 
-
-import os
-import logging
-import requests
 import polars as pl
 from io import BytesIO
 from zipfile import ZipFile
+import requests
 from datetime import datetime
-from functools import lru_cache
+import os
+import logging
 from typing import Literal, Union
+from functools import lru_cache
 
 
 class ShoonyaBFOMaster:
@@ -48,14 +47,21 @@ class ShoonyaBFOMaster:
                     with zip_file.open(file_1) as file:
                         if extension == "txt" or extension == "csv":
                             df = pl.read_csv(
-                                        source= file.read(), 
-                                        infer_schema_length=10000,
+                                        source= file.read(),
+                                        schema= {
+                                                "Exchange" : pl.Utf8,
+                                                "Token" : pl.Utf8,
+                                                "LotSize" : pl.Utf8,
+                                                "Symbol" : pl.Utf8,
+                                                "TradingSymbol" : pl.Utf8,
+                                                "Expiry" : pl.Utf8,
+                                                "Instrument" : pl.Utf8,
+                                                "OptionType" : pl.Utf8,
+                                                "StrikePrice" : pl.Utf8,
+                                                "TickSize" : pl.Utf8
+                                            },
                                         truncate_ragged_lines= True, 
                                         has_header= True
-                                        ).with_columns(
-                                            pl.col(
-                                                ["Token", "LotSize", "StrikePrice", "TickSize"]
-                                                ).cast(pl.Utf8)
                                         )
                             return df
                         else:
@@ -153,25 +159,23 @@ class ShoonyaBFOMaster:
             )-> Union[str, list]:
         df = self.load_master()
         try:
-            if symbol:
-                all_expiry= df.lazy().select(
-                                            ["Symbol_1", "Expiry","Instrument"]
-                                        ).filter(
-                                            (pl.col("Symbol_1") == symbol.upper())
-                                            &
-                                            (pl.col("Instrument") == instrument)
-
+            all_expiry= df.lazy().select(
+                                        ["Symbol_1", "Expiry","Instrument"]
+                                    ).filter(
+                                        (pl.col("Symbol_1") == symbol.upper())
+                                        &
+                                        (pl.col("Instrument") == instrument)
+                                    ).with_columns(
+                                        pl.col("Expiry").str.to_date(format= "%d-%b-%Y")
+                                    ).select(
+                                        "Expiry"
+                                    ).filter(
+                                        pl.col("Expiry") >= self.current_date
+                                    ).unique().sort(
+                                        by="Expiry"
                                         ).with_columns(
-                                            pl.col("Expiry").str.to_date(format= "%d-%b-%Y")
-                                        ).select(
-                                            "Expiry"
-                                        ).filter(
-                                            pl.col("Expiry") >= self.current_date
-                                        ).unique().sort(
-                                            by="Expiry"
-                                            ).with_columns(
-                                                pl.col("Expiry").dt.strftime(format= "%d-%b-%Y").str.to_uppercase()
-                                            ).collect()
+                                            pl.col("Expiry").dt.strftime(format= "%d-%b-%Y").str.to_uppercase()
+                                        ).collect()
             
             if expirytype == "near":
                 return all_expiry.item(0,0)
@@ -190,7 +194,7 @@ class ShoonyaBFOMaster:
                     instrument: Literal["FUTIDX", "FUTSTK", "OPTIDX", "OPTSTK"],
                     expiry: str,
                     optiontype: str= "XX",        
-                    strikeprice: Union[int, str]= 0.0                       
+                    strikeprice: Union[int, str]= 0                      
                     )-> str:
         df = self.load_master()
         try:
@@ -205,7 +209,7 @@ class ShoonyaBFOMaster:
                                     &
                                     (pl.col("OptionType") == optiontype)
                                     &
-                                    (pl.col("StrikePrice") == str(float(strikeprice)))
+                                    (pl.col("StrikePrice") == str(strikeprice))
                                 ).select(
                                     "TradingSymbol"
                                 ).collect().item(0, 0)
@@ -220,7 +224,7 @@ class ShoonyaBFOMaster:
                 instrument: Literal["FUTIDX", "FUTSTK", "OPTIDX", "OPTSTK"]= "OPTIDX",
                 expiry: str= None,
                 optiontype: str= "XX",        
-                strikeprice: Union[int, str]= 0.0 
+                strikeprice: Union[int, str]= 0 
                 )-> str:
         df = self.load_master()
         try:
@@ -236,7 +240,7 @@ class ShoonyaBFOMaster:
                                         &
                                         (pl.col("OptionType") == optiontype)
                                         &
-                                        (pl.col("StrikePrice") == str(float(strikeprice)))
+                                        (pl.col("StrikePrice") == str(strikeprice))
                                     ).select(
                                         "Token"
                                     ).collect().item(0, 0)
@@ -295,6 +299,3 @@ class ShoonyaBFOMaster:
             return lotsize
         except (IndexError, Exception) as e:
             logging.debug("Error Fetching Lotsize :: {}".format(e))
-
-
-
